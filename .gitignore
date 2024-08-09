@@ -1,0 +1,11 @@
+*.js
+**.gz
+**.mp3
+**.usc
+**.scp
+downloads.json
+build/**
+downloads/**
+node_modules/**
+.vscode/**
+.dev/**

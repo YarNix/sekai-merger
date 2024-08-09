@@ -1,0 +1,24 @@
+{
+  "devDependencies": {
+    "@types/fluent-ffmpeg": "^2.1.25",
+    "@types/node": "^22.0.0"
+  },
+  "dependencies": {
+    "@sevenc-nanashi/binaryseeker": "npm:@jsr/sevenc-nanashi__binaryseeker@^1.2.1",
+    "@sonolus/core": "^7.8.0",
+    "fluent-ffmpeg": "^2.1.3",
+    "jszip": "^3.10.1",
+    "sonolus-pjsekai-engine": "^1.6.2",
+    "usctool": "^0.4.1"
+  },
+  "name": "sekai-merge",
+  "version": "0.0.1",
+  "main": "build/index.js",
+  "scripts": {
+    "build": "tsc",
+    "build:bin": "node build/build.js"
+  },
+  "author": "YarNix",
+  "license": "MIT",
+  "description": "Silly script that can generate standalone or merged project sekai chart"
+}

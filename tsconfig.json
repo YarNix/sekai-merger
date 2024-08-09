@@ -1,0 +1,17 @@
+{
+    "compilerOptions": {
+        "lib": [
+            "ESNext"
+        ],
+        "target": "ESNext",
+        "module": "NodeNext",
+        "resolvePackageJsonImports": true,
+        "strict": true,
+        "esModuleInterop": true,
+        "exactOptionalPropertyTypes": true,
+        "forceConsistentCasingInFileNames": true,
+        "outDir": "./build"
+    },
+    "include": [ "./src/*.ts", "./src/*.mts" ],
+    "exclude": [ "./src/build.js", "./node_modules/**" ]
+}
