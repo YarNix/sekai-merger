@@ -17,10 +17,10 @@ Please [download](https://www.ffmpeg.org/download.html), install and add it to y
 node ./build/sekai-merger.js expert 1 2 3
 
 # prefer sekai version of a song
-node ./build/sekai-merger.js master 80 88 --prefer=sekai
+node ./build/sekai-merger.js master --range=80:100 --filter=vocal:sekai
 
 # output as usc
-node ./build/sekai-merger.js append 388 --out=cc_usc
+node ./build/sekai-merger.js append 388 --out=cc_usc --name="Miku Gekishou"
 
 # print help for more information
 node ./build/sekai-merger.js -help
