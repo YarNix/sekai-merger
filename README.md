@@ -20,7 +20,7 @@ node ./build/sekai-merger.js expert 1 2 3
 node ./build/sekai-merger.js master --range=80:100 --filter=vocal:sekai
 
 # output as usc
-node ./build/sekai-merger.js append 388 --out=cc_usc --name="Miku Gekishou"
+node ./build/sekai-merger.js append 388 --out=cc_usc --prefix="Miku Gekishou"
 
 # print help for more information
 node ./build/sekai-merger.js -help
