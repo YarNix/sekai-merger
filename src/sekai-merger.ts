@@ -5,7 +5,7 @@ import zlib from "node:zlib";
 import { parse } from "./parser";
 import { chartURL, filterSongIds, getSongDuration, listSongIds, musicInfo, musicURL, sortSongList } from "./lookup";
 import { getDownloadInfo, saveDownloadInfo } from "./loader";
-import { ALL_MUSIC_DIFFICULTY, ALL_MUSIC_VOCAL, MusicDifficulty, MusicVocal, SortType } from "./types";
+import { ALL_MUSIC_DIFFICULTY, ALL_MUSIC_VOCAL, ALL_UNIT, MusicDifficulty, MusicVocal, SortType, UnitId } from "./types";
 import { susToUSC, uscToLevelData, USC } from "sonolus-pjsekai-engine";
 import { uscConcat } from "./merger";
 import Ffmpeg from "fluent-ffmpeg";
@@ -26,27 +26,25 @@ async function main() {
         return "Must specify a difficulty." + miniHelp;
     if (ALL_MUSIC_DIFFICULTY.includes(diff) == false)
         return `${diff} is not a valid difficulty.${miniHelp}`;
-    let vocalType: MusicVocal | undefined, forced: boolean;
-    const pref = commandLineArgs.named['prefer'] as (MusicVocal | undefined);
-    if (pref != undefined) {
-        if (ALL_MUSIC_VOCAL.includes(pref) == false)
-            return `${pref} is not a valid version.`;
-        [vocalType, forced] = [pref, false];
+    const filters = Object.fromEntries(commandLineArgs.named['filter']?.split(',')?.map(s => s.split(':', 2)).filter((s): s is [string, string] => s.length == 2) ?? []);
+    let vocalType: MusicVocal | undefined, forced: boolean = false, artist: string | undefined, unit: UnitId | undefined;
+    if (filters.only_vocal && ALL_MUSIC_VOCAL.includes(filters.only_vocal as MusicVocal))
+        [vocalType, forced] = [filters.only_vocal as MusicVocal, true];
+    else if (filters.vocal && ALL_MUSIC_VOCAL.includes(filters.vocal as MusicVocal))
+        [vocalType, forced] = [filters.vocal as MusicVocal, false];
+    if (filters.unit && ALL_UNIT.includes(filters.unit as UnitId))
+        unit = filters.unit as UnitId;
+    artist = filters.artist;
+    if (commandLineArgs.named['range']){
+        const [min, max] = commandLineArgs.named['range'].split(':', 2).map(Number);
+        paramIds.push(...Array.from({length: (max - min) + 1}, (_, i) => i + min));
     }
-    else {
-        const ver = commandLineArgs.named['version'] as (MusicVocal | undefined);
-        if (ver != undefined) {
-            if (ALL_MUSIC_VOCAL.includes(ver) == false)
-                return `${ver} is not a valid version.`;
-            [vocalType, forced] = [ver, true];
-        }
-        [vocalType, forced] = [undefined, false];
-    }
+    else
     if (paramIds.length === 0)
         paramIds.push(...listSongIds());
     else if (!paramIds.every(id => isFinite(id) && id % 1 == 0))
         return `${paramIds} contain non decimal number.${miniHelp}`;
-    const unsortedSongList = filterSongIds(paramIds.map(Number), diff, vocalType, forced);
+    const unsortedSongList = filterSongIds(paramIds.map(Number), diff, vocalType, forced, artist, unit);
     const sortingType = commandLineArgs.named['sort'], sortAscending = (commandLineArgs.named['sortDir'] ?? 'ascending') === 'ascending' ? true : false;
     const songList = sortingType == undefined ? unsortedSongList : sortingType.split(',').reduceRight((list, sortby) => sortSongList(list, diff, sortby as SortType, sortAscending), unsortedSongList);
     if (songList.length === 0) 
@@ -92,7 +90,8 @@ async function main() {
         default:
             return `Unregcognized output type: ${commandLineArgs.named['out']}.${miniHelp}`;
     }
-    const namePrefix = commandLineArgs.named['name'] ? commandLineArgs.named['name'] + '-' : '';
+    const namePrefix = commandLineArgs.named['prefix'];
+    const getOutName = () => namePrefix ? namePrefix + '-' : '' + `${diff}-merged`;
     // Downloading neccessary content
     const downloads = getDownloadInfo();
     const promises: Promise<void>[] = [];
@@ -135,13 +134,13 @@ async function main() {
     const usc = uscConcat(uscData, songDur, songFiller);
     if (outputLevel) {
         const levelData = JSON.stringify(uscToLevelData(usc));
-        await asyncfs.writeFile(`${namePrefix}${diff}.gz`, zlib.gzipSync(levelData), { encoding: 'binary'});
+        await asyncfs.writeFile(getOutName() + '.gz', zlib.gzipSync(levelData), { encoding: 'binary'});
     }
     else
     if (outputChart) {
         const { toCyanvasUSC } = await import("./convert.mjs");
         const nn_uscData = JSON.stringify({ usc: toCyanvasUSC(usc), version: 2 });
-        await asyncfs.writeFile(`${namePrefix}${diff}.usc`, nn_uscData, { encoding: 'utf8' });
+        await asyncfs.writeFile(getOutName() + '.usc', nn_uscData, { encoding: 'utf8' });
     }
     if (outputMusic) {
         console.log('Cutting music');
@@ -162,34 +161,42 @@ async function main() {
         await new Promise((resolve, reject) => {
             const command = Ffmpeg().on('end', resolve).on('error', reject);
             songList.reduce((cmd, [id, _]) => cmd.input(path.join('temp', id + '.mp3')), command)
-            .mergeToFile(`${namePrefix}${diff}.mp3`, path.join('temp', 'ffmpeg'));
+            .mergeToFile(getOutName() + '.mp3', path.join('temp', 'ffmpeg'));
         }).catch(rethrowLog('Failed merging audio'));
         fs.rmSync('temp', { recursive: true, force: true });
     }
     if (outputImport) {
         console.log('Creating scp file');
         const vocals = forced ? [ vocalType! ] : [...new Set(songList.map(([_, vocal]) => vocal))];
-        const zipData = await exportSCP(uscToLevelData(usc), `${namePrefix}${diff}.mp3`, diff, vocals);
-        await asyncfs.writeFile(`${namePrefix}${diff}.scp`, zipData);
-        await asyncfs.rm(`${namePrefix}${diff}.mp3`);
+        const zipData = await exportSCP(uscToLevelData(usc), getOutName() + '.mp3', diff, vocals, artist, unit, commandLineArgs.named['title']);
+        await asyncfs.writeFile(getOutName() + '.scp', zipData);
+        await asyncfs.rm(getOutName() + '.mp3');
     }
 }
 
 function getHelpMessage() {
     return [
-        `Usages: ${path.relative(process.cwd(), process.argv[1])} <difficulty> [ids...] [--version=] [--prefer=] [--out=] [--name=] [--sort=] [-delete] [-help]`,
-        `\tdifficulty:`,
+        `Usages: ${path.relative(process.cwd(), process.argv[1])} <difficulty> [ids...]`,
+        "  Options:",
+        `    difficulty:`,
             ...ALL_MUSIC_DIFFICULTY.map(s => '\t\t' + s),
-        `\tversion: if specified, any song that don't match the version will be omitted`,
-            ...ALL_MUSIC_VOCAL.map(s => '\t\t' + s),
-        "\tprefer: similar to version option, but choose a different version when not match instead",
         "\tids: song ids, if not specified all songs are selected",
+        "\trange: select a range of song",
+            "\t\t--range=8:20 select id from 8 to 20",
+        `\tfilter: specify a filter when selecting songs`,
+            "\t\tvocal: specify a vocal type you prefer, if it can't find any, the first available one is picked",
+            "\t\tonly_vocal: any song that don't match the vocal type will be omitted",
+            `\t  -Available vocal types: ${ALL_MUSIC_VOCAL.join(', ')}`,
+            "\t\tartist: the composer, arranger, lyricist, ect.",
+            "\t\tunit: the game unit/group",
+            `\t  -Available units: ${ALL_UNIT.join(', ')}`,
+            "\t  -You can chain filter with comma. ie. --filter=vocal:sekai,artist:wowaka",
         "\tsort: change the sort type of ids",
             "\t\tnone: default if not specified, the order is determined by the database or by argument pass in",
             "\t\tid: the song id",
-            "\t\trank: play level, the difficulty number",
+            "\t\tlevel: play level, the difficulty number",
             "\t\trelease: release date",
-            "\t\t-You can chain sort with comma. ie. --sort=rank,id,release",
+            "\t  -You can chain sort with comma. ie. --sort=rank,id,release",
         "\tsortDir: change the sort direction",
             "\t\tascending: default",
             "\t\tdescending:",
@@ -198,7 +205,8 @@ function getHelpMessage() {
             "\t\tlevel: level data that can be use by pjsekai-engine",
             "\t\tmusic",
             "\t\tcc_usc: .usc that be open by MikuMikuWorld4CC",
-        "\tname: add a prefix to the output files",
+        "\tprefix: add a prefix to the output files",
+        "\ttitle: set the title for the generated level",
         "\tdelete: makes the program delete downloaded content instead of output",
         "\thelp: print the help message"
     ].join('\n');

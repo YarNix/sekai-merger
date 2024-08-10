@@ -3,9 +3,11 @@
 **.mp3
 **.usc
 **.scp
+**.sus
 downloads.json
 build/**
 downloads/**
 node_modules/**
+temp/**
 .vscode/**
 .dev/**

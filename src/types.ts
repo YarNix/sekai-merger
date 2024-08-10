@@ -3,7 +3,9 @@ export const ALL_MUSIC_DIFFICULTY = ["easy", "normal", "hard", "expert", "master
 export type MusicDifficulty = (typeof ALL_MUSIC_DIFFICULTY)[number];
 export const ALL_MUSIC_VOCAL = ["original_song", "sekai", "virtual_singer", "another_vocal", "instrumental", "april_fool_2022", "streaming_live"] as const;
 export type MusicVocal = (typeof ALL_MUSIC_VOCAL)[number];
-export type SortType = 'none' | 'id' | 'rank' | 'release';
+export const ALL_UNIT = ["all", "vocaloid", "light_music_club", "idol", "street", "school_refusal", "theme_park", "other"] as const;
+export type UnitId = (typeof ALL_UNIT)[number];
+export type SortType = 'none' | 'id' | 'level' | 'release';
 // Sonolus Types
 import { PackageInfo, ServerInfo, ServerItemInfo, ServerItemList, LevelItem, ServerItemDetails, ParticleItem, PlaylistItem, EngineItem, EffectItem, PostItem, ReplayItem, SkinItem, BackgroundItem, ServerItemSectionTyped } from "@sonolus/core";
 

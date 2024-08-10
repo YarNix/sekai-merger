@@ -1,5 +1,5 @@
 import { loadFromDB } from "./loader";
-import { IMusicInfo, IMusicDifficultyInfo, IMusicVocalInfo, MusicDifficulty as Difficulty, MusicVocal as Vocal, SortType } from "./types";
+import { IMusicInfo, IMusicDifficultyInfo, IMusicVocalInfo, MusicDifficulty as Difficulty, MusicVocal as Vocal, SortType, UnitId, IMusicTagInfo } from "./types";
 import Ffmpeg from "fluent-ffmpeg";
 const HOST = "https://storage.sekai.best/sekai-jp-assets";
 const MUSIC_PATH = "music/long";
@@ -39,21 +39,27 @@ export function listSongIds(): number[] {
     return musics.map(({id}) => id);
 }
 
-export function filterSongIds(ids: number[], diff: Difficulty, vocalType: Vocal | undefined = undefined, forced: boolean = false): Array<[number, Vocal]> {
+export function filterSongIds(ids: number[], diff: Difficulty, vocalType: Vocal | undefined = undefined, forced: boolean = false, artist: string | undefined, unit: UnitId | undefined): Array<[number, Vocal]> {
+    const musics = loadFromDB<IMusicInfo>('musics');
+    const musicTags = loadFromDB<IMusicTagInfo>('musicTags');
     const musicVocals = loadFromDB<IMusicVocalInfo>('musicVocals');
     const musicDifficulties = loadFromDB<IMusicDifficultyInfo>('musicDifficulties');
-    if (!musicVocals || !musicDifficulties)
+    if (!musics || !musicTags || !musicVocals || !musicDifficulties)
         throw new Error('Database for music data not found!');
     return ids
     .map((id): [number, Vocal] | undefined => {
         if (!musicDifficulties.find(({musicId, musicDifficulty}) => id === musicId && diff === musicDifficulty))
+            return;
+        if (artist && !musics.find((m) => id === m.id && (m.arranger.includes(artist) || m.composer.includes(artist) || m.arranger.includes(artist))))
+            return;
+        if (unit && !musicTags.find(({musicId, musicTag}) => id === musicId && musicTag === unit))
             return;
         const vocalOptions = musicVocals.filter(({musicId, musicVocalType}) => id === musicId && (vocalType === musicVocalType || vocalType == undefined || forced === false));
         const priorityOption = vocalOptions.find(({musicVocalType}) => vocalType === musicVocalType || vocalType == undefined);
         if (!priorityOption && forced)
             return;
         if (vocalOptions.length == 0)
-            return
+            return;
         return [id, vocalOptions[0].musicVocalType as Vocal];
     })
     .filter((value): value is [number, Vocal] => value != undefined);
@@ -66,7 +72,7 @@ export function sortSongList(songList: Array<[number, Vocal]>, diff: Difficulty,
     switch (sortby) {
         case "id":
             return songList.toSorted(([idA], [idB]) => sortNumber(idA, idB));
-        case "rank":
+        case "level":
             {
                 const musicDifficulties = loadFromDB<IMusicDifficultyInfo>('musicDifficulties');
                 if (!musicDifficulties)

@@ -1,5 +1,5 @@
 import { USC, USCObject, USCBpmChange } from "sonolus-pjsekai-engine";
-import { floorTo } from "./math";
+import { floorTo, roundTo } from "./math";
 type seconds = number;
 
 export function uscConcat(uscData: USC[], songDurations: seconds[], songFiller: seconds[]): USC {
@@ -10,8 +10,8 @@ export function uscConcat(uscData: USC[], songDurations: seconds[], songFiller: 
     let beatOffset = 0;
     for (let i = 0; i < uscData.length; i++) {
         let [ beatCountMax, beatPM ] = getBeatCount(uscData[i], songDurations[i] - songFiller[i]),
-        beatCount = floorTo(beatCountMax, TPB);
-        songDurations[i] -= getDuration(beatPM, beatCountMax - beatCount);
+        beatCount = floorTo(beatCountMax, TPB / 8);
+        songDurations[i] -= getDuration(beatPM, roundTo(beatCountMax - beatCount, 1000));
         const beatPad = 4 - (beatCount % 4),
             beatTotal = beatCount + beatPad;
         if (beatPad !== 0 && (i + 1) < uscData.length) {
