@@ -5,7 +5,7 @@ import { SonolusCollectionPackage, SectionItemTypes, SonolusCollection, MusicDif
 import path from "node:path"
 import { EngineItem, LevelData, LevelItem, ServerItemDetails, compress, hash } from "@sonolus/core";
 
-export async function exportSCP(lvlData: LevelData, lvlBGMPath: PathLike, difficulty: MusicDifficulty, vocals: MusicVocal[], artist: string | undefined, unit: UnitId | string | undefined, title: string | undefined) {
+export async function exportSCP(lvlData: LevelData, lvlBGMPath: PathLike, difficulty: MusicDifficulty, vocals: MusicVocal[], artist: string | undefined, unit: UnitId | string | undefined, title: string | undefined, engineURL: string | URL | undefined = undefined) {
     const Snake2Camel = (str: string) => str.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
     if (unit) unit = Snake2Camel(unit);
     const zip = new JSZip();
@@ -33,7 +33,7 @@ export async function exportSCP(lvlData: LevelData, lvlBGMPath: PathLike, diffic
             artists: artist ?? unit ?? "Multiple Artist",
             author: "Project Sekai: Colorful Stage!",
             tags: [{ title: `#${difficulty.toUpperCase()}` }, ...vocals.map((vocal) => ({ title: `${Snake2Camel(vocal)} ver.` }))],
-            engine: await CreatePJSKEngine(),
+            engine: await CreateEngine(engineURL ?? "https://sonolus.sekai.best/sonolus/engines/pjsekai"),
             useSkin: { useDefault: true },
             useBackground: { useDefault: true },
             useEffect: { useDefault: true },
@@ -87,8 +87,8 @@ export async function exportSCP(lvlData: LevelData, lvlBGMPath: PathLike, diffic
     return zip.generateAsync({ type: "nodebuffer" });
 }
 
-async function CreatePJSKEngine(): Promise<EngineItem> {
-    const resp = await fetch('https://sonolus.sekai.best/sonolus/engines/pjsekai');
+async function CreateEngine(url: string | URL): Promise<EngineItem> {
+    const resp = await fetch(url);
     if (!resp.ok) 
         throw new Error('Failed to fetch engine item');
     const engine = JSON.parse(await resp.text()) as ServerItemDetails<EngineItem>;

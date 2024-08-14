@@ -60,7 +60,7 @@ export function filterSongIds(ids: number[], diff: Difficulty, vocalType: Vocal 
             return;
         if (vocalOptions.length == 0)
             return;
-        return [id, vocalOptions[0].musicVocalType as Vocal];
+        return [id, (priorityOption ? priorityOption : vocalOptions[0]).musicVocalType as Vocal];
     })
     .filter((value): value is [number, Vocal] => value != undefined);
 }
@@ -96,7 +96,12 @@ export function sortSongList(songList: Array<[number, Vocal]>, diff: Difficulty,
 export function getSongDuration(mediaFile: string): Promise<number> {
     return new Promise<number>((resolve, reject) => Ffmpeg.ffprobe(mediaFile, (err, data) => {
         if (err) { reject('Failed reading file metadata!'); return; }
-        if (!data.format.duration) { reject('No duration information found.'); return; }
-        resolve(data.format.duration);
+        const stream = data.streams[0];
+        if (!stream || !stream.time_base || !stream.duration_ts) { reject('No stream information found.'); return; }
+        const isFrac = (n: number[]): n is [number, number] => n.length == 2 && n.every(isFinite);
+        const time_base = stream.time_base.split('/', 2).map(Number), duration_ts = Number(stream.duration_ts);
+        if (!isFrac(time_base)) reject('time_base has invalid fraction format');
+        const [ numer, denom ] = time_base;
+        resolve(duration_ts * numer / denom);
     }))
 }

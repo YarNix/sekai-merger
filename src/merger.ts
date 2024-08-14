@@ -64,7 +64,7 @@ function getBeatCount(usc: USC, totalDuration: seconds): [number, number] {
     const bmpChanges = usc.objects.filter(obj => obj.type === 'bpm') as USCBpmChange[];
     bmpChanges.sort((bmpA, bmpB) => bmpA.beat - bmpB.beat);
     for (let i = 1; i < bmpChanges.length; i++) {
-        const beatPassed = bmpChanges[i - 1].beat - bmpChanges[i].beat;
+        const beatPassed = bmpChanges[i].beat - bmpChanges[i - 1].beat;
         totalDuration -= beatPassed * 60 / bmpChanges[i - 1].bpm;
     }
     const lastBmpChange = bmpChanges[bmpChanges.length - 1];
@@ -82,7 +82,7 @@ function getLastBeat(usc: USC) {
             case "single":
                 return Math.max(maxBeat, uscObj.beat);
             case "slide":
-                return uscObj.connections.reduce((maxBeat: number, conn) => Math.max(maxBeat, conn.beat), 0);
+                return uscObj.connections.reduce((maxSlideBeat, conn) => Math.max(maxSlideBeat, conn.beat), maxBeat);
         }
     }, 0);
 }
